@@ -78,4 +78,22 @@ for i in V:
         name=f"c1({i.id+1})"
     )
 
+
+c2 = {}
+for i in V:
+    c2[i.id] = model.addConstr(
+        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i)
+                               == gp.quicksum(x[arc.j, arc.i] for arc in A if arc.j == i),
+                               name=f"c2({i.id+1})")
+
+c3 = {}
+for i in V:
+    c3[i.id] = model.addConstr(
+        a[i.id] <= 48
+    )
+
+
+model.setParam("LogFile", 'log_file')
 model.update()
+model.write('model_file.lp')
+model.optimize()
