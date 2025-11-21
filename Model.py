@@ -20,7 +20,7 @@ class Node:
         self.id = id #v id
 
 class Arc:
-    def __init__(self, sigma, station, tjo, tid, i, j):
+    def __init__(self, sigma, station, tjo, tid, i, j, id):
         self.i = i
         self.j = j
         self.sigma = sigma
@@ -33,7 +33,7 @@ class Arc:
             self.theta = 2
         else:
             self.theta = 1
-        self.id=(f"{self.i}-{self.j}")
+        self.id= id
 
 V = []
 V.append(Node(1,2,6,8,600,2,0))
@@ -44,10 +44,12 @@ V.append(Node(2,3,14,16,600,1,4))
 V.append(Node(3,2,19,21,600,1,5))
 
 A = []
+count = 0
 for i in range(len(V)):
     for j in range(len(V)):
         if V[i].sid == V[j].sio:
-            A.append(Arc(1.5, V[i].sid, V[j].tio, V[i].tid, i, j))
+            A.append(Arc(1.5, V[i].sid, V[j].tio, V[i].tid, i, j, count))
+            count += 1
 
 Am = [arc for arc in A if arc.theta == 2]  
 Ac = [arc for arc in A if arc.theta == 1]  
@@ -73,7 +75,7 @@ model.update()
 c1l = {}
 for i in V:
     c1l[i.id] = model.addConstr(
-        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i.sid)
+        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i.id)
         <= 1,
         name=f"c1({i.id+1})"
     )
@@ -81,7 +83,7 @@ for i in V:
 c1u = {}
 for i in V:
     c1u[i.id] = model.addConstr(
-        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i.sid)
+        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i.id)
         >= 1,
         name=f"c1({i.id+1})"
     )
@@ -90,32 +92,64 @@ for i in V:
 c2 = {}
 for i in V:
     c2[i.id] = model.addConstr(
-        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i.sid)
-                               == gp.quicksum(x[arc.i, arc.j] for arc in A if arc.j == i.sid),
+        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i.id)
+                               == gp.quicksum(x[arc.i, arc.j] for arc in A if arc.j == i.id),
                                name=f"c2({i.id+1})")
 
 c3 = {}
 for i in V:
     c3[i.id] = model.addConstr(
-        a[i.id] <= 48
+        a[i.id] <= 48,
+        name=f"c3({i.id+1})"
     )
 
 c4 = {}
 for arc in Am:
     c4[arc.id] = model.addConstr(
-        a[arc.j] <= V[arc.j].ti + M * (1-y[arc.i, arc.j])
+        a[arc.j] <= V[arc.j].ti + M * (1-y[arc.i, arc.j]),
+        name=f"c4({arc.id+1})"
     )
 
 c5 = {}
 for arc in Am:
     c5[arc.id] = model.addConstr(
-        a[arc.j] >= V[arc.j].ti + M * (1-y[arc.i, arc.j])
+        a[arc.j] >= V[arc.j].ti + M * (1-y[arc.i, arc.j]),
+        name=f"c5({arc.id+1})"
     )
 
 c6 = {}
 for arc in Am:
     c6[arc.id] = model.addConstr(
-        a[arc.j] <= a[arc.i] + arc.tij + V[arc.j].ti + M * (1+y[arc.i, arc.j]-x[arc.i, arc.j])
+        a[arc.j] <= a[arc.i] + arc.tij + V[arc.j].ti + M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]),
+        name=f"c6({arc.id+1})"
+    )
+
+c7 = {}
+for arc in Am:
+    c7[arc.id] = model.addConstr(
+        a[arc.j] >= a[arc.i] + arc.tij + V[arc.j].ti - M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]),
+        name=f"c7({arc.id+1})"
+    )
+
+c8 = {}
+for arc in Ac:
+    c8[arc.id] = model.addConstr(
+        a[arc.j] <= a[arc.i] + arc.tij + V[arc.j].ti + M * (1 - x[arc.i, arc.j]),
+        name=f"c8({arc.id+1})"
+    )
+
+c9 = {}
+for arc in Ac:
+    c9[arc.id] = model.addConstr(
+        a[arc.j] >= a[arc.i] + arc.tij + V[arc.j].ti - M * (1 - x[arc.i, arc.j]),
+        name=f"c9({arc.id+1})"
+    )
+
+c10 = {}
+for arc in Am:
+    c10[arc.id] = model.addConstr(
+        x[arc.i, arc.j] >= y[arc.i,arc.j],
+        name=f"c10({arc.id+1})"
     )
 
 
