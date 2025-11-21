@@ -106,10 +106,16 @@ for arc in Am:
         a[arc.j] <= V[arc.j].ti + M * (1-y[arc.i, arc.j])
     )
 
-c4 = {}
+c5 = {}
 for arc in Am:
-    c4[arc.id] = model.addConstr(
+    c5[arc.id] = model.addConstr(
         a[arc.j] >= V[arc.j].ti + M * (1-y[arc.i, arc.j])
+    )
+
+c6 = {}
+for arc in Am:
+    c6[arc.id] = model.addConstr(
+        a[arc.j] <= a[arc.i] + arc.tij + V[arc.j].ti + M * (1+y[arc.i, arc.j]-x[arc.i, arc.j])
     )
 
 

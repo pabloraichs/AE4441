@@ -528,3 +528,33 @@ Solution count 2: 23 63
 
 Optimal solution found (tolerance 1.00e-04)
 Best objective 2.300000000000e+01, best bound 2.300000000000e+01, gap 0.0000%
+
+Gurobi 12.0.3 (win64) logging started Fri Nov 21 12:56:24 2025
+
+Set parameter LogFile to value "log_file"
+Warning: linear constraint 0 and linear constraint 6 have the same name "c1(1)"
+Gurobi Optimizer version 12.0.3 build v12.0.3rc0 (win64 - Windows 11.0 (26100.2))
+
+CPU model: 12th Gen Intel(R) Core(TM) i5-12450HX, instruction set [SSE2|AVX|AVX2]
+Thread count: 8 physical cores, 12 logical processors, using up to 12 threads
+
+Optimize a model with 36 rows, 36 columns and 86 nonzeros
+Model fingerprint: 0xb27054e3
+Variable types: 12 continuous, 24 integer (24 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+02]
+  Objective range  [2e+00, 3e+01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+02]
+Found heuristic solution: objective 63.0000000
+Presolve removed 36 rows and 36 columns
+Presolve time: 0.00s
+Presolve: All rows and columns removed
+
+Explored 0 nodes (0 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 1 (of 12 available processors)
+
+Solution count 2: 23 63 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.300000000000e+01, best bound 2.300000000000e+01, gap 0.0000%
