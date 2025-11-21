@@ -6,13 +6,84 @@ from gurobipy import Model,GRB,LinExpr
 import gurobipy as gp
 import pickle
 from copy import deepcopy
+import matplotlib.pyplot as plt
 
 model = Model("ChooChoo")
 M = 500
-maintenance_time = 1.5
+turnaround_time = 1.5
+maintenance_time = 4
 Tm = 48
 Lm = 40
-maintenance_stations = [2, 4]
+maintenance_stations = [2, 3, 4]
+# ...existing code...
+
+def plot_space_time(V, stations=None, time_range=(0, 24), figsize=(10, 6), filename=None, show_labels=True):
+    """
+    Draw a time-space diagram from a list/array of Node objects (like V).
+    - V: iterable of Node objects with attributes sio, sid, tio, tid, id
+    - stations: iterable/list of station ids to plot (defaults to unique station ids found in V)
+    - time_range: tuple (tmin, tmax) in hours; trips that wrap-around (arrival <= departure) are drawn across midnight (arrival+24)
+    - filename: if provided, image is saved to this path (PNG)
+    """
+    if stations is None:
+        # collect unique station ids from V and sort
+        stations = sorted({v.sio for v in V} | {v.sid for v in V})
+
+    # map station id -> y coordinate (S1 at bottom)
+    stations_sorted = list(stations)
+    y_map = {s: idx + 1 for idx, s in enumerate(stations_sorted)}  # 1..n bottom->top
+
+    tmin, tmax = time_range
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # horizontal lines for stations
+    for s in stations_sorted:
+        y = y_map[s]
+        ax.hlines(y, tmin, tmax, colors='lightgray', linestyles='dotted', linewidth=1)
+        ax.text(tmin - (tmax - tmin) * 0.02, y, f"S{s}", va='center', ha='right', fontsize=10)
+
+    # plot trips
+    cmap = plt.get_cmap('tab20')
+    for idx, v in enumerate(V):
+        t0 = float(v.tio)
+        t1 = float(v.tid)
+        # if arrival is not after departure, assume next day
+        if t1 <= t0:
+            t1_plot = t1 + 24
+        else:
+            t1_plot = t1
+        # if t0 is outside time_range, still draw if overlaps; simple clipping for display
+        x = [t0, t1_plot]
+        y = [y_map[v.sio], y_map[v.sid]]
+        color = cmap(idx % 20)
+        ax.plot(x, y, color=color, linewidth=2)
+        # markers at endpoints
+        ax.scatter([t0], [y_map[v.sio]], color=color, s=20, zorder=3)
+        ax.scatter([t1_plot], [y_map[v.sid]], color=color, s=20, zorder=3)
+        if show_labels:
+            # label near mid-point
+            xm = x[0] + 0.25 * (x[1] - x[0])
+            ym = y[0] + 0.25 * (y[1] - y[0])
+            ax.text(xm, ym, f"G{v.id+1}", fontsize=8, ha='center', va='center', backgroundcolor='white', alpha=0.8)
+
+    ax.set_xlim(tmin, tmax if tmax > tmin else tmin + 24)
+    ax.set_ylim(0.5, len(stations_sorted) + 0.5)
+    ax.set_xlabel("time (hours)")
+    ax.set_ylabel("stations")
+    ax.set_yticks([])  # station labels already drawn
+    ax.set_title("Space-Time Diagram")
+    ax.grid(False)
+
+    # tidy ticks for x axis (hours)
+    xticks = np.arange(int(tmin), int(max(tmax, tmax + 1)) + 1, max(1, int((tmax - tmin) // 12 or 1)))
+    ax.set_xticks(np.arange(int(tmin), int(tmin) + 25, 2))
+    ax.set_xlim(tmin, tmin + (tmax - tmin))
+
+    plt.tight_layout()
+    if filename:
+        plt.savefig(filename, dpi=300)
+    return fig, ax
+
 class Node:
     def __init__(self, sio, sid, tio, tid, li, ti, id):
         self.sio=sio #origin station
@@ -33,45 +104,29 @@ class Arc:
             self.tij = tjo-tid
         else:
             self.tij = tjo-tid+24
-        if self.station in maintenance_stations and self.tij > 4:
+        if self.station in maintenance_stations and self.tij > maintenance_time:
             self.theta = 2
         else:
             self.theta = 1
         self.id= id
 
-"""V = []
+V = []
 V.append(Node(1,2,6,8,6,2,0))
 V.append(Node(2,1,6,8,6,2,1))
 V.append(Node(1,3,10,14,8,4,2))
 V.append(Node(3,1,17,21,8,4,3))
 V.append(Node(2,3,14,16,6,2,4))
-V.append(Node(3,2,19,21,6,2,5))"""
+V.append(Node(3,2,19,21,6,2,5))
 
-V = []
-node_id = 0
-stations = [1, 2, 3, 4]  # added 4th station
-
-# For every ordered station pair (s -> d, s != d) create 3 trips with deterministic times/distances
-base_departures = [6, 10, 16]  # three departure times per OD pair
-
-for s in stations:
-    for d in stations:
-        if s == d:
-            continue
-        for depart in base_departures:
-            # deterministic travel-time rule (can be adjusted)
-            travel = 2 * (((d - s) % 4) + 1)     # yields 2,4,6,8 depending on pair
-            arrival = (depart + travel) % 24
-            distance = travel * 3
-            V.append(Node(s, d, depart, arrival, distance, travel, node_id))
-            node_id += 1
+fig, ax = plot_space_time(V, stations=[1,2,3,4], time_range=(0,24), filename='space_time.png')
+plt.show()
 
 A = []
 count = 0
 for i in range(len(V)):
     for j in range(len(V)):
         if V[i].sid == V[j].sio:
-            A.append(Arc(maintenance_time, V[i].sid, V[j].tio, V[i].tid, i, j, count))
+            A.append(Arc(turnaround_time, V[i].sid, V[j].tio, V[i].tid, i, j, count))
             count += 1
 
 Am = [arc for arc in A if arc.theta == 2]  
