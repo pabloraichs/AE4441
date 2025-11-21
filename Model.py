@@ -113,7 +113,7 @@ for arc in Am:
 c5 = {}
 for arc in Am:
     c5[arc.id] = model.addConstr(
-        a[arc.j] >= V[arc.j].ti + M * (1-y[arc.i, arc.j]),
+        a[arc.j] >= V[arc.j].ti - M * (1-y[arc.i, arc.j]),
         name=f"c5({arc.id+1})"
     )
 
