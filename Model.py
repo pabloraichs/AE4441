@@ -6,6 +6,8 @@ from gurobipy import Model,GRB,LinExpr
 import gurobipy as gp
 import pickle
 from copy import deepcopy
+import random
+from collections import Counter
 import matplotlib.pyplot as plt
 
 model = Model("ChooChoo")
@@ -93,6 +95,8 @@ class Node:
         self.li=li # distance
         self.ti=ti #travel time
         self.id = id #v id
+    def __repr__(self):
+        return f"Node({self.sio},{self.sid},{self.tio},{self.tid},{self.li},{self.ti},{self.id})"
 
 class Arc:
     def __init__(self, sigma, station, tjo, tid, i, j, id):
@@ -110,16 +114,104 @@ class Arc:
             self.theta = 1
         self.id= id
 
-V = []
-V.append(Node(1,2,6,8,6,2,0))
-V.append(Node(2,1,6,8,6,2,1))
-V.append(Node(1,3,10,14,8,4,2))
-V.append(Node(3,1,17,21,8,4,3))
-V.append(Node(2,3,14,16,6,2,4))
-V.append(Node(3,2,19,21,6,2,5))
+# V = []
+# V.append(Node(1,2,6,8,6,2,0))
+# V.append(Node(2,1,6,8,6,2,1))
+# V.append(Node(1,3,10,14,8,4,2))
+# V.append(Node(3,1,17,21,8,4,3))
+# V.append(Node(2,3,14,16,6,2,4))
+# V.append(Node(3,2,19,21,6,2,5))
 
-fig, ax = plot_space_time(V, stations=[1,2,3,4], time_range=(0,24), filename='space_time.png')
-plt.show()
+def generate_strict_balanced_network(
+        n_stations=6,
+        trains_per_station=4,
+        min_dist=2, max_dist=8,
+        min_time=1, max_time=4,
+        min_depart=5, max_depart=22,
+        rng_seed=None,
+        allow_self_loops=False,
+        max_shuffles=10000):
+    """
+    Produces a list V of Node objects with exactly trains_per_station departures
+    and exactly trains_per_station arrivals for every station 1..n_stations.
+    By default it avoids self-loops; set allow_self_loops=True to permit them.
+    """
+
+    if rng_seed is not None:
+        random.seed(rng_seed)
+
+    if n_stations < 1:
+        raise ValueError("n_stations must be >= 1")
+    if n_stations == 1 and not allow_self_loops and trains_per_station > 0:
+        raise ValueError("Impossible: single station with self-loops disallowed.")
+
+    # build the origin slots and destination slots with identical counts
+    origins = []
+    destinations = []
+    for s in range(1, n_stations + 1):
+        origins += [s] * trains_per_station
+        destinations += [s] * trains_per_station
+
+    # produce a random permutation of destinations that yields no origin==dest pairs
+    # if allow_self_loops is True we accept any permutation
+    attempts = 0
+    while True:
+        attempts += 1
+        random.shuffle(destinations)
+        if allow_self_loops:
+            break
+        # check for any self-loop
+        bad = False
+        for o, d in zip(origins, destinations):
+            if o == d:
+                bad = True
+                break
+        if not bad:
+            break
+        if attempts >= max_shuffles:
+            # fallback: use a simple constructive derangement method
+            # rotate blocks by 1 station to avoid self-loops
+            # This only works if n_stations > 1
+            if n_stations == 1:
+                raise RuntimeError("Cannot avoid self-loops with 1 station")
+            # build destinations by station-block rotation
+            destinations = []
+            for s in range(1, n_stations + 1):
+                dest_station = (s % n_stations) + 1  # next station cyclic
+                destinations += [dest_station] * trains_per_station
+            # now destinations is deterministic derangement (station->next station)
+            break
+
+    # now pair origins[i] -> destinations[i]
+    V = []
+    id_counter = 0
+    for origin, dest in zip(origins, destinations):
+        # random departure time in integer hours (can be adjusted)
+        tio = random.randint(min_depart, max_depart)
+        ti = random.randint(min_time, max_time)
+        tid = tio + ti
+        li = random.randint(min_dist, max_dist)
+        V.append(Node(origin, dest, tio, tid, li, ti, id_counter))
+        id_counter += 1
+
+    # quick sanity checks
+    out_counts = Counter(v.sio for v in V)
+    in_counts  = Counter(v.sid for v in V)
+    assert all(out_counts[s] == trains_per_station for s in range(1, n_stations+1)), "out-degree mismatch"
+    assert all(in_counts[s]  == trains_per_station for s in range(1, n_stations+1)), "in-degree mismatch"
+
+    return V
+
+# Example usage
+if __name__ == "__main__":
+    V = generate_strict_balanced_network(n_stations=5, trains_per_station=3, rng_seed=42)
+    for v in V:
+        print(v)
+
+    # Print arrival/departure counts to demonstrate balance
+    from collections import Counter
+    print("Departures per station:", Counter(v.sio for v in V))
+    print("Arrivals   per station:", Counter(v.sid for v in V))
 
 A = []
 count = 0
@@ -155,7 +247,7 @@ for i in V:
     c1l[i.id] = model.addConstr(
         gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i.id)
         <= 1,
-        name=f"c1({i.id+1})"
+        name=f"c1l({i.id+1})"
     )
 
 c1u = {}
@@ -163,7 +255,7 @@ for i in V:
     c1u[i.id] = model.addConstr(
         gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i.id)
         >= 1,
-        name=f"c1({i.id+1})"
+        name=f"c1u({i.id+1})"
     )
 
 
