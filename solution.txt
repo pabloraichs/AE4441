@@ -1,0 +1,6 @@
+Objective: 23.0
+Selected x arcs:
+Arc(2,3)
+Arc(3,4)
+Arc(4,1)
+Arc(6,2)

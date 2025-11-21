@@ -8,7 +8,7 @@ import pickle
 from copy import deepcopy
 
 model = Model("ChooChoo")
-
+M = 100
 class Node:
     def __init__(self, sio, sid, tio, tid, li, ti, id):
         self.sio=sio #origin station
@@ -29,6 +29,11 @@ class Arc:
             self.tij = tjo-tid
         else:
             self.tij = tjo-tid+24
+        if self.station == 2 and self.tij > 4:
+            self.theta = 2
+        else:
+            self.theta = 1
+        self.id=(f"{self.i}-{self.j}")
 
 V = []
 V.append(Node(1,2,6,8,600,2,0))
@@ -43,6 +48,9 @@ for i in range(len(V)):
     for j in range(len(V)):
         if V[i].sid == V[j].sio:
             A.append(Arc(1.5, V[i].sid, V[j].tio, V[i].tid, i, j))
+
+Am = [arc for arc in A if arc.theta == 2]  
+Ac = [arc for arc in A if arc.theta == 1]  
 
 x = {}
 for arc in A:
@@ -65,7 +73,7 @@ model.update()
 c1l = {}
 for i in V:
     c1l[i.id] = model.addConstr(
-        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i)
+        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i.sid)
         <= 1,
         name=f"c1({i.id+1})"
     )
@@ -73,7 +81,7 @@ for i in V:
 c1u = {}
 for i in V:
     c1u[i.id] = model.addConstr(
-        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i)
+        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i.sid)
         >= 1,
         name=f"c1({i.id+1})"
     )
@@ -82,8 +90,8 @@ for i in V:
 c2 = {}
 for i in V:
     c2[i.id] = model.addConstr(
-        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i)
-                               == gp.quicksum(x[arc.j, arc.i] for arc in A if arc.j == i),
+        gp.quicksum(x[arc.i, arc.j] for arc in A if arc.i == i.sid)
+                               == gp.quicksum(x[arc.i, arc.j] for arc in A if arc.j == i.sid),
                                name=f"c2({i.id+1})")
 
 c3 = {}
@@ -92,8 +100,49 @@ for i in V:
         a[i.id] <= 48
     )
 
+c4 = {}
+for arc in Am:
+    c4[arc.id] = model.addConstr(
+        a[arc.j] <= V[arc.j].ti + M * (1-y[arc.i, arc.j])
+    )
+
+c4 = {}
+for arc in Am:
+    c4[arc.id] = model.addConstr(
+        a[arc.j] >= V[arc.j].ti + M * (1-y[arc.i, arc.j])
+    )
+
 
 model.setParam("LogFile", 'log_file')
 model.update()
 model.write('model_file.lp')
 model.optimize()
+
+if model.SolCount > 0:
+    print("Status:", model.status)
+    print("Objective:", model.objVal)
+    print("\nSelected x arcs:")
+    for (i, j), var in x.items():
+        if var.x > 0.5:
+            print(f"Arc({i+1},{j+1})  x = {var.x:.0f}  tij={next(a.tij for a in A if a.i==i and a.j==j)}")
+
+    print("\nSelected y arcs:")
+    for (i, j), var in y.items():
+        if var.x > 0.5:
+            print(f"y({i+1},{j+1}) = {var.x:.0f}")
+
+    print("\nNode variables a and b:")
+    for vid, var in a.items():
+        print(f"a({vid+1}) = {var.x}")
+    for vid, var in b.items():
+        print(f"b({vid+1}) = {var.x}")
+
+    # write a simple text file with selected arcs
+    with open('solution.txt', 'w') as f:
+        f.write(f"Objective: {model.objVal}\n")
+        f.write("Selected x arcs:\n")
+        for (i, j), var in x.items():
+            if var.x > 0.5:
+                f.write(f"Arc({i+1},{j+1})\n")
+else:
+    print("No solution available. Status:", model.status)
