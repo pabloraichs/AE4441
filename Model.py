@@ -8,7 +8,11 @@ import pickle
 from copy import deepcopy
 
 model = Model("ChooChoo")
-M = 100
+M = 500
+maintenance_time = 1.5
+Tm = 48
+Lm = 40
+maintenance_stations = [2, 4]
 class Node:
     def __init__(self, sio, sid, tio, tid, li, ti, id):
         self.sio=sio #origin station
@@ -29,26 +33,37 @@ class Arc:
             self.tij = tjo-tid
         else:
             self.tij = tjo-tid+24
-        if self.station == 2 and self.tij > 4:
+        if self.station in maintenance_stations and self.tij > 4:
             self.theta = 2
         else:
             self.theta = 1
         self.id= id
 
 V = []
-V.append(Node(1,2,6,8,600,2,0))
-V.append(Node(2,1,6,8,600,2,1))
-V.append(Node(1,3,10,14,800,4,2))
-V.append(Node(3,1,17,21,800,4,3))
-V.append(Node(2,3,14,16,600,2,4))
-V.append(Node(3,2,19,21,600,2,5))
+node_id = 0
+stations = [1, 2, 3, 4]  # added 4th station
+
+# For every ordered station pair (s -> d, s != d) create 3 trips with deterministic times/distances
+base_departures = [6, 10, 16]  # three departure times per OD pair
+
+for s in stations:
+    for d in stations:
+        if s == d:
+            continue
+        for depart in base_departures:
+            # deterministic travel-time rule (can be adjusted)
+            travel = 2 * (((d - s) % 4) + 1)     # yields 2,4,6,8 depending on pair
+            arrival = (depart + travel) % 24
+            distance = travel * 3
+            V.append(Node(s, d, depart, arrival, distance, travel, node_id))
+            node_id += 1
 
 A = []
 count = 0
 for i in range(len(V)):
     for j in range(len(V)):
         if V[i].sid == V[j].sio:
-            A.append(Arc(5, V[i].sid, V[j].tio, V[i].tid, i, j, count))
+            A.append(Arc(maintenance_time, V[i].sid, V[j].tio, V[i].tid, i, j, count))
             count += 1
 
 Am = [arc for arc in A if arc.theta == 2]  
@@ -99,7 +114,7 @@ for i in V:
 c3 = {}
 for i in V:
     c3[i.id] = model.addConstr(
-        a[i.id] <= 48,
+        a[i.id] <= Tm,
         name=f"c3({i.id+1})"
     )
 
@@ -152,6 +167,54 @@ for arc in Am:
         name=f"c10({arc.id+1})"
     )
 
+c11 = {}
+for i in V:
+    c11[i.id] = model.addConstr(
+        b[i.id] <= Lm,
+        name=f"c11({i.id+1})"
+    )
+
+c12 = {}
+for arc in Am:
+    c12[arc.id] = model.addConstr(
+        b[arc.j] <= V[arc.j].li + M * (1-y[arc.i, arc.j]),
+        name=f"c12({arc.id+1})"
+    )
+
+c13 = {}
+for arc in Am:
+    c13[arc.id] = model.addConstr(
+        b[arc.j] >= V[arc.j].li - M * (1-y[arc.i, arc.j]),
+        name=f"c13({arc.id+1})"
+    )
+
+c14 = {}
+for arc in Am:
+    c14[arc.id] = model.addConstr(
+        b[arc.j] <= b[arc.i] + V[arc.j].li + M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]),
+        name=f"c14({arc.id+1})"
+    )
+
+c15 = {}
+for arc in Am:
+    c15[arc.id] = model.addConstr(
+        b[arc.j] >= b[arc.i] + V[arc.j].li - M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]),
+        name=f"c15({arc.id+1})"
+    )
+
+c16 = {}
+for arc in Ac:
+    c16[arc.id] = model.addConstr(
+        b[arc.j] <= b[arc.i] + V[arc.j].li + M * (1 - x[arc.i, arc.j]),
+        name=f"c16({arc.id+1})"
+    )
+
+c17 = {}
+for arc in Ac:
+    c17[arc.id] = model.addConstr(
+        b[arc.j] >= b[arc.i]+ V[arc.j].li - M * (1 - x[arc.i, arc.j]),
+        name=f"c17({arc.id+1})"
+    )
 
 model.setParam("LogFile", 'log_file')
 model.update()
