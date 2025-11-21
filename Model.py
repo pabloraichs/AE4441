@@ -39,6 +39,14 @@ class Arc:
             self.theta = 1
         self.id= id
 
+"""V = []
+V.append(Node(1,2,6,8,6,2,0))
+V.append(Node(2,1,6,8,6,2,1))
+V.append(Node(1,3,10,14,8,4,2))
+V.append(Node(3,1,17,21,8,4,3))
+V.append(Node(2,3,14,16,6,2,4))
+V.append(Node(3,2,19,21,6,2,5))"""
+
 V = []
 node_id = 0
 stations = [1, 2, 3, 4]  # added 4th station
