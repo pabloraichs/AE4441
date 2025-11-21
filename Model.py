@@ -80,7 +80,7 @@ def plot_space_time(V, stations=None, time_range=(0, 24), figsize=(10, 6), filen
     xticks = np.arange(int(tmin), int(max(tmax, tmax + 1)) + 1, max(1, int((tmax - tmin) // 12 or 1)))
     ax.set_xticks(np.arange(int(tmin), int(tmin) + 25, 2))
     ax.set_xlim(tmin, tmin + (tmax - tmin))
-
+    plt.show()
     plt.tight_layout()
     if filename:
         plt.savefig(filename, dpi=300)
@@ -204,7 +204,7 @@ def generate_strict_balanced_network(
 
 # Example usage
 if __name__ == "__main__":
-    V = generate_strict_balanced_network(n_stations=5, trains_per_station=3, rng_seed=42)
+    V = generate_strict_balanced_network(n_stations=5, trains_per_station=3, rng_seed=0)
     for v in V:
         print(v)
 
@@ -220,6 +220,14 @@ for i in range(len(V)):
         if V[i].sid == V[j].sio:
             A.append(Arc(turnaround_time, V[i].sid, V[j].tio, V[i].tid, i, j, count))
             count += 1
+
+
+plot_space_time(V, filename='space_time_diagram.png')
+
+
+
+
+
 
 Am = [arc for arc in A if arc.theta == 2]  
 Ac = [arc for arc in A if arc.theta == 1]  
