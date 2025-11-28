@@ -218,6 +218,7 @@ class Arc:
                 self.theta = 2
             else:
                 self.theta = 1
+            self.connected = 1
         else:
             if tjo-tid>=self.sigma + od_times[(node1.sid, node2.sio)]:
                 self.tij = tjo-tid
@@ -227,6 +228,7 @@ class Arc:
                 self.theta = 2
             else:
                 self.theta = 1
+            self.connected = 0
         self.id = id
 
 A = []
@@ -350,42 +352,84 @@ for i in V:
 c12 = {}
 for arc in Am:
     c12[arc.id] = model.addConstr(
-        b[arc.j] <= V[arc.j].li + M * (1-y[arc.i, arc.j]),
+        b[arc.j] <= V[arc.j].li + M * (1-y[arc.i, arc.j]) + M * (1-arc.connected),
+        name=f"c12({arc.id+1})"
+    )
+
+c12 = {}
+for arc in Am:
+    c12[arc.id] = model.addConstr(
+        b[arc.j] <= V[arc.j].li + M * (1-y[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] + M * (arc.connected),
         name=f"c12({arc.id+1})"
     )
 
 c13 = {}
 for arc in Am:
     c13[arc.id] = model.addConstr(
-        b[arc.j] >= V[arc.j].li - M * (1-y[arc.i, arc.j]),
+        b[arc.j] >= V[arc.j].li - M * (1-y[arc.i, arc.j]) - M * (1-arc.connected),
+        name=f"c13({arc.id+1})"
+    )
+
+c13 = {}
+for arc in Am:
+    c13[arc.id] = model.addConstr(
+        b[arc.j] >= V[arc.j].li - M * (1-y[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] - M * (arc.connected),
         name=f"c13({arc.id+1})"
     )
 
 c14 = {}
 for arc in Am:
     c14[arc.id] = model.addConstr(
-        b[arc.j] <= b[arc.i] + V[arc.j].li + M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]),
+        b[arc.j] <= b[arc.i] + V[arc.j].li + M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]) + M * (1-arc.connected),
+        name=f"c14({arc.id+1})"
+    )
+
+c14 = {}
+for arc in Am:
+    c14[arc.id] = model.addConstr(
+        b[arc.j] <= b[arc.i] + V[arc.j].li + M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] + M * (arc.connected),
         name=f"c14({arc.id+1})"
     )
 
 c15 = {}
 for arc in Am:
     c15[arc.id] = model.addConstr(
-        b[arc.j] >= b[arc.i] + V[arc.j].li - M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]),
+        b[arc.j] >= b[arc.i] + V[arc.j].li - M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]) - M * (1-arc.connected),
+        name=f"c15({arc.id+1})"
+    )
+
+c15 = {}
+for arc in Am:
+    c15[arc.id] = model.addConstr(
+        b[arc.j] >= b[arc.i] + V[arc.j].li - M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] - M * (arc.connected),
         name=f"c15({arc.id+1})"
     )
 
 c16 = {}
 for arc in Ac:
     c16[arc.id] = model.addConstr(
-        b[arc.j] <= b[arc.i] + V[arc.j].li + M * (1 - x[arc.i, arc.j]),
+        b[arc.j] <= b[arc.i] + V[arc.j].li + M * (1 - x[arc.i, arc.j]) + M * (1-arc.connected),
+        name=f"c16({arc.id+1})"
+    )
+
+c16 = {}
+for arc in Ac:
+    c16[arc.id] = model.addConstr(
+        b[arc.j] <= b[arc.i] + V[arc.j].li + M * (1 - x[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] + M * (arc.connected),
         name=f"c16({arc.id+1})"
     )
 
 c17 = {}
 for arc in Ac:
     c17[arc.id] = model.addConstr(
-        b[arc.j] >= b[arc.i]+ V[arc.j].li - M * (1 - x[arc.i, arc.j]),
+        b[arc.j] >= b[arc.i]+ V[arc.j].li - M * (1 - x[arc.i, arc.j]) - M * (1-arc.connected),
+        name=f"c17({arc.id+1})"
+    )
+
+c17 = {}
+for arc in Ac:
+    c17[arc.id] = model.addConstr(
+        b[arc.j] >= b[arc.i]+ V[arc.j].li - M * (1 - x[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] - M * (arc.connected),
         name=f"c17({arc.id+1})"
     )
 
