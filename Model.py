@@ -16,7 +16,7 @@ turnaround_time = 1.5
 maintenance_time = 4
 Tm = 48
 Lm = 40
-maintenance_stations = [2, 3, 4]
+maintenance_stations = [1]
 # ...existing code...
 
 def plot_space_time(V, stations=None, time_range=(0, 24), figsize=(10, 6), filename=None, show_labels=True):
@@ -106,6 +106,18 @@ class Node:
 # V.append(Node(2,3,14,16,6,2,4))
 # V.append(Node(3,2,19,21,6,2,5))
 
+
+V = []
+V.append(Node(1, 2, 6, 8, 40, 2, 0))
+V.append(Node(1, 2, 18, 20, 40, 2, 1))
+od_times = {}
+od_times[(1, 2)] = 2
+od_times[(2, 1)] = 2
+od_dists = {}
+od_dists[(1, 2)] = 40
+od_dists[(2, 1)] = 40
+
+
 def generate_strict_balanced_network(
         n_stations=6,
         trains_per_station=4,
@@ -191,15 +203,15 @@ def generate_strict_balanced_network(
 
     return V
 
-if __name__ == "__main__":
-    V = generate_strict_balanced_network(n_stations=5, trains_per_station=3, rng_seed=1)
-    for v in V:
-        print(v)
+# if __name__ == "__main__":
+#     V = generate_strict_balanced_network(n_stations=5, trains_per_station=3, rng_seed=1)
+#     for v in V:
+#         print(v)
 
-    # Print arrival/departure counts to demonstrate balance
-    from collections import Counter
-    print("Departures per station:", Counter(v.sio for v in V))
-    print("Arrivals   per station:", Counter(v.sid for v in V))
+#     # Print arrival/departure counts to demonstrate balance
+#     from collections import Counter
+#     print("Departures per station:", Counter(v.sio for v in V))
+#     print("Arrivals   per station:", Counter(v.sid for v in V))
 
 class Arc:
     def __init__(self, sigma, i, j, id, node1, node2):
@@ -466,3 +478,10 @@ if model.SolCount > 0:
                 f.write(f"Arc({i+1},{j+1})\n")
 else:
     print("No solution available. Status:", model.status)
+
+total=0
+for i in V:
+    total += i.ti
+
+print("Total time:", total + model.objVal)
+print("Number of trains:", (total + model.objVal)/24)
