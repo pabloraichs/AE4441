@@ -98,22 +98,6 @@ class Node:
     def __repr__(self):
         return f"Node({self.sio},{self.sid},{self.tio},{self.tid},{self.li},{self.ti},{self.id})"
 
-class Arc:
-    def __init__(self, sigma, station, tjo, tid, i, j, id):
-        self.i = i
-        self.j = j
-        self.sigma = sigma
-        self.station = station
-        if tjo-tid>=self.sigma:
-            self.tij = tjo-tid
-        else:
-            self.tij = tjo-tid+24
-        if self.station in maintenance_stations and self.tij > maintenance_time:
-            self.theta = 2
-        else:
-            self.theta = 1
-        self.id= id
-
 # V = []
 # V.append(Node(1,2,6,8,6,2,0))
 # V.append(Node(2,1,6,8,6,2,1))
@@ -131,11 +115,6 @@ def generate_strict_balanced_network(
         rng_seed=None,
         allow_self_loops=False,
         max_shuffles=10000):
-    """
-    Produces a list V of Node objects with exactly trains_per_station departures
-    and exactly trains_per_station arrivals for every station 1..n_stations.
-    By default it avoids self-loops; set allow_self_loops=True to permit them.
-    """
 
     if rng_seed is not None:
         random.seed(rng_seed)
@@ -145,6 +124,23 @@ def generate_strict_balanced_network(
     if n_stations == 1 and not allow_self_loops and trains_per_station > 0:
         raise ValueError("Impossible: single station with self-loops disallowed.")
 
+    # Pre-generate time and distance for each OD pair
+    global od_times
+    global od_dists
+    od_times = {}
+    od_dists = {}
+    for o in range(1, n_stations + 1):
+        for d in range(1, n_stations + 1):
+            if o == d and not allow_self_loops:
+                continue
+            # ensure symmetric: if (o,d) already set, use it; otherwise generate new
+            if (d, o) in od_times:
+                od_times[(o, d)] = od_times[(d, o)]
+                od_dists[(o, d)] = od_dists[(d, o)]
+            else:
+                od_times[(o, d)] = random.randint(min_time, max_time)
+                od_dists[(o, d)] = random.randint(min_dist, max_dist)
+
     # build the origin slots and destination slots with identical counts
     origins = []
     destinations = []
@@ -153,7 +149,6 @@ def generate_strict_balanced_network(
         destinations += [s] * trains_per_station
 
     # produce a random permutation of destinations that yields no origin==dest pairs
-    # if allow_self_loops is True we accept any permutation
     attempts = 0
     while True:
         attempts += 1
@@ -169,28 +164,22 @@ def generate_strict_balanced_network(
         if not bad:
             break
         if attempts >= max_shuffles:
-            # fallback: use a simple constructive derangement method
-            # rotate blocks by 1 station to avoid self-loops
-            # This only works if n_stations > 1
             if n_stations == 1:
                 raise RuntimeError("Cannot avoid self-loops with 1 station")
-            # build destinations by station-block rotation
             destinations = []
             for s in range(1, n_stations + 1):
-                dest_station = (s % n_stations) + 1  # next station cyclic
+                dest_station = (s % n_stations) + 1
                 destinations += [dest_station] * trains_per_station
-            # now destinations is deterministic derangement (station->next station)
             break
 
-    # now pair origins[i] -> destinations[i]
+    # now pair origins[i] -> destinations[i], using pre-generated OD times/distances
     V = []
     id_counter = 0
     for origin, dest in zip(origins, destinations):
-        # random departure time in integer hours (can be adjusted)
         tio = random.randint(min_depart, max_depart)
-        ti = random.randint(min_time, max_time)
+        ti = od_times[(origin, dest)]  # use OD pair's time
         tid = tio + ti
-        li = random.randint(min_dist, max_dist)
+        li = od_dists[(origin, dest)]  # use OD pair's distance
         V.append(Node(origin, dest, tio, tid, li, ti, id_counter))
         id_counter += 1
 
@@ -202,9 +191,8 @@ def generate_strict_balanced_network(
 
     return V
 
-# Example usage
 if __name__ == "__main__":
-    V = generate_strict_balanced_network(n_stations=5, trains_per_station=3, rng_seed=0)
+    V = generate_strict_balanced_network(n_stations=5, trains_per_station=3, rng_seed=1)
     for v in V:
         print(v)
 
@@ -213,21 +201,43 @@ if __name__ == "__main__":
     print("Departures per station:", Counter(v.sio for v in V))
     print("Arrivals   per station:", Counter(v.sid for v in V))
 
+class Arc:
+    def __init__(self, sigma, i, j, id, node1, node2):
+        self.i = i
+        self.j = j
+        self.sigma = sigma
+        self.station = node1.sid
+        tjo = node2.tio
+        tid = node1.tid
+        if node1.sid == node2.sio:
+            if tjo-tid>=self.sigma:
+                self.tij = tjo-tid
+            else:
+                self.tij = tjo-tid+24
+            if self.station in maintenance_stations and self.tij > maintenance_time:
+                self.theta = 2
+            else:
+                self.theta = 1
+        else:
+            if tjo-tid>=self.sigma + od_times[(node1.sid, node2.sio)]:
+                self.tij = tjo-tid
+            else:
+                self.tij = tjo-tid+24
+            if (self.station in maintenance_stations or node2.sio in maintenance_stations) and self.tij > maintenance_time + od_times[(node1.sid, node2.sio)]:
+                self.theta = 2
+            else:
+                self.theta = 1
+        self.id = id
+
 A = []
 count = 0
 for i in range(len(V)):
     for j in range(len(V)):
-        if V[i].sid == V[j].sio:
-            A.append(Arc(turnaround_time, V[i].sid, V[j].tio, V[i].tid, i, j, count))
+#        if V[i].sid == V[j].sio:
+            A.append(Arc(turnaround_time, i, j, count, V[i], V[j]))
             count += 1
 
-
 plot_space_time(V, filename='space_time_diagram.png')
-
-
-
-
-
 
 Am = [arc for arc in A if arc.theta == 2]  
 Ac = [arc for arc in A if arc.theta == 1]  
