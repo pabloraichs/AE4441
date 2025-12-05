@@ -16,7 +16,7 @@ turnaround_time = 1.5
 maintenance_time = 4
 Tm = 48
 Lm = 40
-maintenance_stations = [1]
+maintenance_stations = [1, 2, 3]
 # ...existing code...
 
 def plot_space_time(V, stations=None, time_range=(0, 24), figsize=(10, 6), filename=None, show_labels=True):
@@ -107,15 +107,15 @@ class Node:
 # V.append(Node(3,2,19,21,6,2,5))
 
 
-V = []
-V.append(Node(1, 2, 6, 8, 40, 2, 0))
-V.append(Node(1, 2, 18, 20, 40, 2, 1))
-od_times = {}
-od_times[(1, 2)] = 2
-od_times[(2, 1)] = 2
-od_dists = {}
-od_dists[(1, 2)] = 40
-od_dists[(2, 1)] = 40
+# V = []
+# V.append(Node(1, 2, 6, 8, 20, 2, 0))
+# V.append(Node(1, 2, 18, 20, 20, 2, 1))
+# od_times = {}
+# od_times[(1, 2)] = 2
+# od_times[(2, 1)] = 2
+# od_dists = {}
+# od_dists[(1, 2)] = 20
+# od_dists[(2, 1)] = 20
 
 
 def generate_strict_balanced_network(
@@ -143,8 +143,9 @@ def generate_strict_balanced_network(
     od_dists = {}
     for o in range(1, n_stations + 1):
         for d in range(1, n_stations + 1):
-            if o == d and not allow_self_loops:
-                continue
+            if o == d:
+                od_times[(o, d)] = 0
+                od_dists[(o, d)] = 0
             # ensure symmetric: if (o,d) already set, use it; otherwise generate new
             if (d, o) in od_times:
                 od_times[(o, d)] = od_times[(d, o)]
@@ -203,15 +204,15 @@ def generate_strict_balanced_network(
 
     return V
 
-# if __name__ == "__main__":
-#     V = generate_strict_balanced_network(n_stations=5, trains_per_station=3, rng_seed=1)
-#     for v in V:
-#         print(v)
+if __name__ == "__main__":
+    V = generate_strict_balanced_network(n_stations=5, trains_per_station=3, rng_seed=1)
+    for v in V:
+        print(v)
 
-#     # Print arrival/departure counts to demonstrate balance
-#     from collections import Counter
-#     print("Departures per station:", Counter(v.sio for v in V))
-#     print("Arrivals   per station:", Counter(v.sid for v in V))
+    # Print arrival/departure counts to demonstrate balance
+    from collections import Counter
+    print("Departures per station:", Counter(v.sio for v in V))
+    print("Arrivals   per station:", Counter(v.sid for v in V))
 
 class Arc:
     def __init__(self, sigma, i, j, id, node1, node2):
@@ -368,9 +369,10 @@ for arc in Am:
         name=f"c12({arc.id+1})"
     )
 
-c12 = {}
+c12b = {}
 for arc in Am:
-    c12[arc.id] = model.addConstr(
+    print(V[arc.i].sid, V[arc.j].sio)
+    c12b[arc.id] = model.addConstr(
         b[arc.j] <= V[arc.j].li + M * (1-y[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] + M * (arc.connected),
         name=f"c12({arc.id+1})"
     )
@@ -382,9 +384,9 @@ for arc in Am:
         name=f"c13({arc.id+1})"
     )
 
-c13 = {}
+c13b = {}
 for arc in Am:
-    c13[arc.id] = model.addConstr(
+    c13b[arc.id] = model.addConstr(
         b[arc.j] >= V[arc.j].li - M * (1-y[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] - M * (arc.connected),
         name=f"c13({arc.id+1})"
     )
@@ -396,9 +398,9 @@ for arc in Am:
         name=f"c14({arc.id+1})"
     )
 
-c14 = {}
+c14b = {}
 for arc in Am:
-    c14[arc.id] = model.addConstr(
+    c14b[arc.id] = model.addConstr(
         b[arc.j] <= b[arc.i] + V[arc.j].li + M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] + M * (arc.connected),
         name=f"c14({arc.id+1})"
     )
@@ -410,9 +412,9 @@ for arc in Am:
         name=f"c15({arc.id+1})"
     )
 
-c15 = {}
+c15b = {}
 for arc in Am:
-    c15[arc.id] = model.addConstr(
+    c15b[arc.id] = model.addConstr(
         b[arc.j] >= b[arc.i] + V[arc.j].li - M * (1+y[arc.i, arc.j]-x[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] - M * (arc.connected),
         name=f"c15({arc.id+1})"
     )
@@ -424,9 +426,9 @@ for arc in Ac:
         name=f"c16({arc.id+1})"
     )
 
-c16 = {}
+c16b = {}
 for arc in Ac:
-    c16[arc.id] = model.addConstr(
+    c16b[arc.id] = model.addConstr(
         b[arc.j] <= b[arc.i] + V[arc.j].li + M * (1 - x[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] + M * (arc.connected),
         name=f"c16({arc.id+1})"
     )
@@ -438,9 +440,9 @@ for arc in Ac:
         name=f"c17({arc.id+1})"
     )
 
-c17 = {}
+c17b = {}
 for arc in Ac:
-    c17[arc.id] = model.addConstr(
+    c17b[arc.id] = model.addConstr(
         b[arc.j] >= b[arc.i]+ V[arc.j].li - M * (1 - x[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] - M * (arc.connected),
         name=f"c17({arc.id+1})"
     )
