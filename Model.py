@@ -518,7 +518,7 @@ while len(doneNodes) < numNode:
         else:
             bonus = 0
         plt.plot((V[start_node].tio + 24*days, V[start_node].tid + 24*days + bonus), (V[start_node].sio, V[start_node].sid),colours[subtour], marker = 'o')
-        if ctime > V[start_node].tid + 24*days:
+        if ctime >= V[start_node].tid + 24*days:
             days = days + 1
             ctime = V[start_node].tid + 24*days
         else:
@@ -533,7 +533,7 @@ while len(doneNodes) < numNode:
                     plt.plot((V[i].tid + 24*days, V[j].tio + 24*days+bonus), (V[i].sid, V[j].sio),dashes[subtour], marker = 'o')
                     start_node = j
                     break
-        if ctime > V[j].tio + 24*days:
+        if ctime >= V[j].tio + 24*days:
             days = days + 1
             ctime = V[j].tio + 24*days
         else:
