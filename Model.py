@@ -259,7 +259,7 @@ Ac = [arc for arc in A if arc.theta == 1]
 
 x = {}
 for arc in A:
-    x[arc.i, arc.j] = model.addVar(obj=arc.tij, vtype=GRB.BINARY,name = ''.join(['Arc(', str(arc.i+1), ',', str(arc.j+1), ')']))
+    x[arc.i, arc.j] = model.addVar(obj=arc.tij + 12 * (1-arc.connected), vtype=GRB.BINARY,name = ''.join(['Arc(', str(arc.i+1), ',', str(arc.j+1), ')']))
 
 y = {}
 for arc in A:
@@ -371,7 +371,6 @@ for arc in Am:
 
 c12b = {}
 for arc in Am:
-    print(V[arc.i].sid, V[arc.j].sio)
     c12b[arc.id] = model.addConstr(
         b[arc.j] <= V[arc.j].li + M * (1-y[arc.i, arc.j]) + od_dists[V[arc.i].sid, V[arc.j].sio] + M * (arc.connected),
         name=f"c12({arc.id+1})"
@@ -460,6 +459,7 @@ if model.SolCount > 0:
         if var.x > 0.5:
             print(f"Arc({i+1},{j+1})  x = {var.x:.0f}  tij={next(a.tij for a in A if a.i==i and a.j==j)}")
 
+
     print("\nSelected y arcs:")
     for (i, j), var in y.items():
         if var.x > 0.5:
@@ -487,3 +487,47 @@ for i in V:
 
 print("Total time:", total + model.objVal)
 print("Number of trains:", (total + model.objVal)/24)
+
+plt.figure()
+numNode = len(V)
+doneNodes = []
+while len(doneNodes) < numNode:
+    routing = True
+    for i in range(len(V)):
+        if i not in doneNodes:
+            start_node = i
+            doneNodes.append(start_node)
+            break
+    ctime = 0
+    days = 0    
+    while routing == True:
+        if V[start_node].tid < V[start_node].tio:
+            bonus = 24
+        else:
+            bonus = 0
+        plt.plot((V[start_node].tio + 24*days, V[start_node].tid + 24*days + bonus), (V[start_node].sio, V[start_node].sid), marker = 'o')
+        if ctime > V[start_node].tid + 24*days:
+            days = days + 1
+            ctime = V[start_node].tid + 24*days
+        else:
+            ctime = V[start_node].tid + 24*days
+        for (i, j), var in x.items():
+            if var.x > 0.5:
+                if i == start_node:
+                    if V[j].tio < V[i].tid:
+                        bonus = 24
+                    else:
+                        bonus = 0 
+                    plt.plot((V[i].tid + 24*days, V[j].tio + 24*days+bonus), (V[i].sid, V[j].sio),'--', marker = 'o')
+                    start_node = j
+                    break
+        if ctime > V[j].tio + 24*days:
+            days = days + 1
+            ctime = V[j].tio + 24*days
+        else:
+            ctime = V[j].tio + 24*days
+        if start_node in doneNodes:
+            routing = False
+        else:
+            doneNodes.append(start_node)
+plt.show()

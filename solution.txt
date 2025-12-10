@@ -1,4 +1,17 @@
-Objective: 20.0
+Objective: 124.0
 Selected x arcs:
-Arc(1,2)
-Arc(2,1)
+Arc(1,10)
+Arc(2,4)
+Arc(3,5)
+Arc(4,15)
+Arc(5,14)
+Arc(6,13)
+Arc(7,12)
+Arc(8,3)
+Arc(9,6)
+Arc(10,7)
+Arc(11,8)
+Arc(12,1)
+Arc(13,2)
+Arc(14,11)
+Arc(15,9)
