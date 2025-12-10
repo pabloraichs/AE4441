@@ -16,7 +16,7 @@ turnaround_time = 1.5
 maintenance_time = 4
 Tm = 48
 Lm = 40
-maintenance_stations = [1, 2, 3]
+maintenance_stations = [1]
 # ...existing code...
 
 def plot_space_time(V, stations=None, time_range=(0, 24), figsize=(10, 6), filename=None, show_labels=True):
@@ -80,7 +80,6 @@ def plot_space_time(V, stations=None, time_range=(0, 24), figsize=(10, 6), filen
     xticks = np.arange(int(tmin), int(max(tmax, tmax + 1)) + 1, max(1, int((tmax - tmin) // 12 or 1)))
     ax.set_xticks(np.arange(int(tmin), int(tmin) + 25, 2))
     ax.set_xlim(tmin, tmin + (tmax - tmin))
-    plt.show()
     plt.tight_layout()
     if filename:
         plt.savefig(filename, dpi=300)
@@ -109,13 +108,15 @@ class Node:
 
 # V = []
 # V.append(Node(1, 2, 6, 8, 20, 2, 0))
-# V.append(Node(1, 2, 18, 20, 20, 2, 1))
+# V.append(Node(2, 1, 10, 12, 20, 2, 1))
 # od_times = {}
 # od_times[(1, 2)] = 2
 # od_times[(2, 1)] = 2
 # od_dists = {}
 # od_dists[(1, 2)] = 20
 # od_dists[(2, 1)] = 20
+# od_dists[(1, 1)] = 0
+# od_dists[(2, 2)] = 0  
 
 
 def generate_strict_balanced_network(
@@ -130,7 +131,11 @@ def generate_strict_balanced_network(
 
     if rng_seed is not None:
         random.seed(rng_seed)
-
+        print(f"Random seed set to: {rng_seed}")
+    else:
+        rng_seed = random.randrange(10**9)  # or any range you like
+        random.seed(rng_seed)
+        print(f"No seed provided, using generated seed: {rng_seed}")
     if n_stations < 1:
         raise ValueError("n_stations must be >= 1")
     if n_stations == 1 and not allow_self_loops and trains_per_station > 0:
@@ -205,7 +210,7 @@ def generate_strict_balanced_network(
     return V
 
 if __name__ == "__main__":
-    V = generate_strict_balanced_network(n_stations=5, trains_per_station=3, rng_seed=1)
+    V = generate_strict_balanced_network(n_stations=5, trains_per_station=3)
     for v in V:
         print(v)
 
@@ -491,21 +496,28 @@ print("Number of trains:", (total + model.objVal)/24)
 plt.figure()
 numNode = len(V)
 doneNodes = []
+colours = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
+dashes = ['b--', 'g--', 'r--', 'c--', 'm--', 'y--', 'k--']
+subtour = -1
 while len(doneNodes) < numNode:
     routing = True
+    lowT = 24
+    best_i = -1
     for i in range(len(V)):
-        if i not in doneNodes:
-            start_node = i
-            doneNodes.append(start_node)
-            break
+        if i not in doneNodes and V[i].tio < lowT:
+            best_i = i
+            lowT = V[i].tio
+    start_node = best_i
+    doneNodes.append(start_node)
     ctime = 0
-    days = 0    
+    days = 0
+    subtour = subtour+1
     while routing == True:
-        if V[start_node].tid < V[start_node].tio:
+        if V[start_node].tid <= V[start_node].tio:
             bonus = 24
         else:
             bonus = 0
-        plt.plot((V[start_node].tio + 24*days, V[start_node].tid + 24*days + bonus), (V[start_node].sio, V[start_node].sid), marker = 'o')
+        plt.plot((V[start_node].tio + 24*days, V[start_node].tid + 24*days + bonus), (V[start_node].sio, V[start_node].sid),colours[subtour], marker = 'o')
         if ctime > V[start_node].tid + 24*days:
             days = days + 1
             ctime = V[start_node].tid + 24*days
@@ -514,11 +526,11 @@ while len(doneNodes) < numNode:
         for (i, j), var in x.items():
             if var.x > 0.5:
                 if i == start_node:
-                    if V[j].tio < V[i].tid:
+                    if V[j].tio <= V[i].tid:
                         bonus = 24
                     else:
                         bonus = 0 
-                    plt.plot((V[i].tid + 24*days, V[j].tio + 24*days+bonus), (V[i].sid, V[j].sio),'--', marker = 'o')
+                    plt.plot((V[i].tid + 24*days, V[j].tio + 24*days+bonus), (V[i].sid, V[j].sio),dashes[subtour], marker = 'o')
                     start_node = j
                     break
         if ctime > V[j].tio + 24*days:
